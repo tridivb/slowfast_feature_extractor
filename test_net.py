@@ -55,22 +55,22 @@ def multi_view_test(test_loader, model, test_meter, cfg):
         if cfg.NUM_GPUS > 1:
             preds, labels, video_idx = du.all_gather([preds, labels, video_idx])
 
-        print(feat.shape)
-        break
+        print(feat.shape, feat_path)
+        # break
 
         # test_meter.iter_toc()
         # Update and log stats.
-        test_meter.update_stats(
-            preds.detach().cpu(),
-            labels.detach().cpu(),
-            video_idx.detach().cpu(),
-        )
-        test_meter.log_iter_stats(cur_iter)
-        test_meter.iter_tic()
+        # test_meter.update_stats(
+        #     preds.detach().cpu(),
+        #     labels.detach().cpu(),
+        #     video_idx.detach().cpu(),
+        # )
+        # test_meter.log_iter_stats(cur_iter)
+        # test_meter.iter_tic()
 
     # Log epoch stats and print the final testing results.
-    test_meter.finalize_metrics()
-    test_meter.reset()
+    # test_meter.finalize_metrics()
+    # test_meter.reset()
 
 
 def test(cfg):
@@ -121,8 +121,8 @@ def test(cfg):
             inflation=False,
             convert_from_caffe2=cfg.TRAIN.CHECKPOINT_TYPE == "caffe2",
         )
-    else:
-        raise NotImplementedError("Unknown way to load checkpoint.")
+    # else:
+    #     raise NotImplementedError("Unknown way to load checkpoint.")
 
     # Create video testing loaders.
     test_loader = loader.construct_loader(cfg, "test")

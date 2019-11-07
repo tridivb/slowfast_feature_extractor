@@ -6,6 +6,8 @@ TRAIN:
   CHECKPOINT_PERIOD: 1
   AUTO_RESUME: True
 DATA:
+  PATH_TO_DATA_DIR: "/media/data/tridiv/epic_kitchens/other_stuff/breakfast"
+  PATH_PREFIX: "/media/data/tridiv/epic_kitchens/other_stuff/breakfast"
   NUM_FRAMES: 32
   SAMPLING_RATE: 2
   TRAIN_JITTER_SCALES: [256, 320]
@@ -52,7 +54,7 @@ TEST:
   ENABLE: True
   DATASET: breakfast
   BATCH_SIZE: 1
-  CHECKPOINT_FILE_PATH: "/media/remote_home/tridiv/slowfast_feature_extractor/checkpoints/SLOWFAST_8x8_R50.pkl"
+  CHECKPOINT_FILE_PATH: ""
 DATA_LOADER:
   NUM_WORKERS: 8
   PIN_MEMORY: True
