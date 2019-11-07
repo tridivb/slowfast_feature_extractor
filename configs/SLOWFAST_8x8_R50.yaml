@@ -5,6 +5,8 @@ TRAIN:
   EVAL_PERIOD: 10
   CHECKPOINT_PERIOD: 1
   AUTO_RESUME: True
+  CHECKPOINT_FILE_PATH: "/media/remote_home/tridiv/slowfast_feature_extractor/checkpoints/SLOWFAST_8x8_R50.pkl"
+  CHECKPOINT_TYPE: caffe2
 DATA:
   PATH_TO_DATA_DIR: "/media/data/tridiv/epic_kitchens/other_stuff/breakfast"
   PATH_PREFIX: "/media/data/tridiv/epic_kitchens/other_stuff/breakfast"
@@ -18,7 +20,7 @@ SLOWFAST:
   ALPHA: 4
   BETA_INV: 8
   FUSION_CONV_CHANNEL_RATIO: 2
-  FUSION_KERNEL_SZ: 5
+  FUSION_KERNEL_SZ: 7
 RESNET:
   ZERO_INIT_FINAL_BN: True
   WIDTH_PER_GROUP: 64
@@ -54,7 +56,6 @@ TEST:
   ENABLE: True
   DATASET: breakfast
   BATCH_SIZE: 1
-  CHECKPOINT_FILE_PATH: ""
 DATA_LOADER:
   NUM_WORKERS: 8
   PIN_MEMORY: True
