@@ -1,6 +1,3 @@
-# slowfast_feature_extractor
-Feature Extractor module using the PySlowFast framework
-
 # SlowFast Feature Extractor
 
 Extract features from videos with a pre-trained SlowFast model using the PySlowFast framework
