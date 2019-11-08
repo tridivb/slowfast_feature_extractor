@@ -1,44 +1,50 @@
 #!/usr/bin/env python3
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
-"""Multi-view test a video classification model."""
+# Modified to process a list of videos
+
+"""Extract features for videos using pre-trained networks"""
 
 import numpy as np
 import torch
+import os
+import time
 
 import slowfast.utils.checkpoint as cu
 import slowfast.utils.distributed as du
 import slowfast.utils.logging as logging
 import slowfast.utils.misc as misc
-# from slowfast.datasets import loader
-from slowfast.models import model_builder
-from slowfast.utils.meters import TestMeter
 
+from models import model_builder
 from datasets import loader
+from datasets.videoset import VideoSet
 
 logger = logging.get_logger(__name__)
 
 
-def multi_view_test(test_loader, model, test_meter, cfg):
+def calculate_time_taken(start_time, end_time):
+    hours = int((end_time - start_time) / 3600)
+    minutes = int((end_time - start_time) / 60) - (hours * 60)
+    seconds = int((end_time - start_time) % 60)
+    return hours, minutes, seconds
+
+
+def multi_view_test(test_loader, model, cfg):
     """
-    Perform mutli-view testing that uniformly samples N clips from a video along
-    its temporal axis. For each clip, it takes 3 crops to cover the spatial
-    dimension, followed by averaging the softmax scores across all Nx3 views to
-    form a video-level prediction. All video predictions are compared to
-    ground-truth labels and the final testing performance is logged.
+    Perform mutli-view testing that samples a segment of frames from a video
+    and extract features from a pre-trained model.
     Args:
         test_loader (loader): video testing loader.
         model (model): the pretrained video model to test.
-        test_meter (TestMeter): testing meters to log and ensemble the testing
-            results.
         cfg (CfgNode): configs. Details can be found in
             slowfast/config/defaults.py
     """
     # Enable eval mode.
     model.eval()
-    test_meter.iter_tic()
 
-    for cur_iter, (inputs, labels, video_idx, feat_path) in enumerate(test_loader):
+    feat_arr = None
+
+    for inputs in test_loader:
         # Transfer the data to the current GPU device.
         if isinstance(inputs, (list,)):
             for i in range(len(inputs)):
@@ -46,36 +52,24 @@ def multi_view_test(test_loader, model, test_meter, cfg):
         else:
             inputs = inputs.cuda(non_blocking=True)
 
-        labels = labels.cuda()
-        video_idx = video_idx.cuda()
-
         # Perform the forward pass.
         preds, feat = model(inputs)
+        feat = feat.cpu().numpy()
         # Gather all the predictions across all the devices to perform ensemble.
         if cfg.NUM_GPUS > 1:
             preds, labels, video_idx = du.all_gather([preds, labels, video_idx])
 
-        print(feat.shape, feat_path)
-        # break
+        if feat_arr is None:
+            feat_arr = feat
+        else:
+            feat_arr = np.concatenate((feat_arr, feat), axis=0)
 
-        # test_meter.iter_toc()
-        # Update and log stats.
-        # test_meter.update_stats(
-        #     preds.detach().cpu(),
-        #     labels.detach().cpu(),
-        #     video_idx.detach().cpu(),
-        # )
-        # test_meter.log_iter_stats(cur_iter)
-        # test_meter.iter_tic()
-
-    # Log epoch stats and print the final testing results.
-    # test_meter.finalize_metrics()
-    # test_meter.reset()
+    return feat_arr
 
 
 def test(cfg):
     """
-    Perform multi-view testing on the pretrained video model.
+    Perform multi-view testing/feature extraction on the pretrained video model.
     Args:
         cfg (CfgNode): configs. Details can be found in
             slowfast/config/defaults.py
@@ -121,26 +115,52 @@ def test(cfg):
             inflation=False,
             convert_from_caffe2=cfg.TRAIN.CHECKPOINT_TYPE == "caffe2",
         )
-    # else:
-    #     raise NotImplementedError("Unknown way to load checkpoint.")
+    else:
+        raise NotImplementedError("Unknown way to load checkpoint.")
 
-    # Create video testing loaders.
-    test_loader = loader.construct_loader(cfg, "test")
-    logger.info("Testing model for {} iterations".format(len(test_loader)))
+    vid_root = cfg.DATA.PATH_TO_DATA_DIR
+    videos_list_file = os.path.join(vid_root, "vid_list.csv")
 
-    assert (
-        len(test_loader.dataset)
-        % (cfg.TEST.NUM_ENSEMBLE_VIEWS * cfg.TEST.NUM_SPATIAL_CROPS)
-        == 0
+    print("Loading Video List ...")
+    with open(videos_list_file) as f:
+        videos = [x.strip() for x in f.readlines() if len(x.strip()) > 0]
+    print("Done")
+    print("----------------------------------------------------------")
+
+    print("{} videos to be processed...".format(len(videos)))
+    print("----------------------------------------------------------")
+
+    start_time = time.time()
+    for vid in videos:
+        # Create video testing loaders.
+        path_to_vid = os.path.join(vid_root, os.path.split(vid)[0])
+        vid_id = os.path.split(vid)[1]
+        print("Processing {}...".format(vid))
+
+        dataset = VideoSet(cfg, path_to_vid, vid_id)
+        test_loader = torch.utils.data.DataLoader(
+            dataset,
+            batch_size=cfg.TEST.BATCH_SIZE,
+            shuffle=False,
+            sampler=None,
+            num_workers=cfg.DATA_LOADER.NUM_WORKERS,
+            pin_memory=cfg.DATA_LOADER.PIN_MEMORY,
+            drop_last=False,
+        )
+
+        # Perform multi-view test on the entire dataset.
+        feat_arr = multi_view_test(test_loader, model, cfg)
+        out_path = os.path.join(cfg.OUTPUT_DIR, os.path.split(vid)[0])
+        out_file = vid_id.split(".")[0] + "_{}.npy".format(cfg.DATA.NUM_FRAMES)
+        os.makedirs(out_path, exist_ok=True)
+        np.save(os.path.join(out_path, out_file), feat_arr)
+        print("Done.")
+        print("----------------------------------------------------------")
+    end_time = time.time()
+    hours, minutes, seconds = calculate_time_taken(start_time, end_time)
+    print(
+        "Time taken: {} hour(s), {} minute(s) and {} second(s)".format(
+            hours, minutes, seconds
+        )
     )
-    # Create meters for multi-view testing.
-    test_meter = TestMeter(
-        len(test_loader.dataset)
-        // (cfg.TEST.NUM_ENSEMBLE_VIEWS * cfg.TEST.NUM_SPATIAL_CROPS),
-        cfg.TEST.NUM_ENSEMBLE_VIEWS * cfg.TEST.NUM_SPATIAL_CROPS,
-        cfg.MODEL.NUM_CLASSES,
-        len(test_loader),
-    )
-
-    # # Perform multi-view test on the entire dataset.
-    multi_view_test(test_loader, model, test_meter, cfg)
+    print("----------------------------------------------------------")

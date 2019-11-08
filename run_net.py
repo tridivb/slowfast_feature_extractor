@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
-"""Wrapper to train and test a video classification model."""
+"""
+Wrapper to train and test a video classification model. 
+Modified to only use the test function for feature extraction.
+"""
 
 import argparse
 import sys
@@ -9,10 +12,9 @@ import torch
 
 import slowfast.utils.checkpoint as cu
 import slowfast.utils.multiprocessing as mpu
-from slowfast.config.defaults import get_cfg
+from configs.custom_config import get_cfg
 
 from test_net import test
-# from train_net import train
 
 
 def parse_args():
@@ -40,10 +42,7 @@ def parse_args():
         type=int,
     )
     parser.add_argument(
-        "--num_shards",
-        help="Number of shards using by the job",
-        default=1,
-        type=int,
+        "--num_shards", help="Number of shards using by the job", default=1, type=int,
     )
     parser.add_argument(
         "--init_method",
@@ -72,7 +71,7 @@ def parse_args():
 
 def load_config(args):
     """
-    Given the arguemnts, load and initialize the configs.
+    Given the arguments, load and initialize the configs.
     Args:
         args (argument): arguments includes `shard_id`, `num_shards`,
             `init_method`, `cfg_file`, and `opts`.
@@ -106,26 +105,6 @@ def main():
     """
     args = parse_args()
     cfg = load_config(args)
-
-    # Perform training.
-    # if cfg.TRAIN.ENABLE:
-    #     if cfg.NUM_GPUS > 1:
-    #         torch.multiprocessing.spawn(
-    #             mpu.run,
-    #             nprocs=cfg.NUM_GPUS,
-    #             args=(
-    #                 cfg.NUM_GPUS,
-    #                 train,
-    #                 args.init_method,
-    #                 cfg.SHARD_ID,
-    #                 cfg.NUM_SHARDS,
-    #                 cfg.DIST_BACKEND,
-    #                 cfg,
-    #             ),
-    #             daemon=False,
-    #         )
-    #     else:
-    #         train(cfg=cfg)
 
     # Perform multi-clip testing.
     if cfg.TEST.ENABLE:

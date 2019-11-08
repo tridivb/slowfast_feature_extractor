@@ -8,13 +8,10 @@ from torch.utils.data.distributed import DistributedSampler
 from torch.utils.data.sampler import RandomSampler
 
 from slowfast.datasets.kinetics import Kinetics
-from datasets.breakfast import Breakfast
+from datasets.videoset import VideoSet
 
 # Supported datasets.
-_DATASET_CATALOG = {
-                    "kinetics": Kinetics,
-                    "breakfast": Breakfast
-                }
+_DATASET_CATALOG = {"kinetics": Kinetics}
 
 
 def construct_loader(cfg, split):
