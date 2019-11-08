@@ -12,11 +12,11 @@ git clone git@github.com:tridivb/slowfast_feature_extractor.git
 
 ### Prerequisites
 
-Python >= 3.6
-[Pytorch](https://pytorch.org/)  >= 1.3 
-[PySlowFast](https://github.com/facebookresearch/SlowFast.git)
-
-The videos can be setup in the following way
+Python >= 3.6\
+[Pytorch](https://pytorch.org/)  >= 1.3\
+[PySlowFast](https://github.com/facebookresearch/SlowFast.git)\
+\
+The videos can be setup in the following way:
 
 ```
 |---<path to dataset>
@@ -30,6 +30,7 @@ The videos can be setup in the following way
 ```
 
 The vid_list.csv should have the paths of all the videos. Based on the hierarchy above, it would like as follows:
+
 ```
 video_1.avi
 video2/video_2.mp4
@@ -39,14 +40,14 @@ video2/video_2.mp4
 ```
 
 ### Installing
-
-Navigate to the slowfast_feature_extractor directory
+\
+Navigate to the slowfast_feature_extractor directory\
 
 ```
 git clone git@github.com:tridivb/slowfast_feature_extractor.git
 cd slowfast_feature_extractor/
 ```
-
+\
 Download the pre-trained [weights](https://github.com/facebookresearch/SlowFast/blob/master/MODEL_ZOO.md) 
 from the PySlowFast Model Zoo and copy it to your desired location
 
@@ -89,7 +90,7 @@ To extract features, execute the run_net.py as follows:
 python run_net.py --cfg ./configs/<config_file>.yaml
 ```
 
-For our case, we used the SlowFast network with a Resnet50 backbone, frame length of 8 and sample rate of 8.
+For our case, we used the SlowFast network with a Resnet50 backbone, frame length of 8 and sample rate of 8.\
 If you want to use a different model, copy the corresponding config file from where you cloned the PySlowFast framework
 and download the weights.
 
@@ -108,8 +109,8 @@ The detections are saved in the following format for each video:
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.\
+\
 Please note, the original PySlowFast frames is licensed under the Apache 2.0 license. Please respect the original licenses as well.
 
 ## Acknowledgments
