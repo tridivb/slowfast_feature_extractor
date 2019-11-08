@@ -9,6 +9,7 @@ import numpy as np
 import torch
 import os
 import time
+from tqdm import tqdm
 
 import slowfast.utils.checkpoint as cu
 import slowfast.utils.distributed as du
@@ -44,7 +45,7 @@ def multi_view_test(test_loader, model, cfg):
 
     feat_arr = None
 
-    for inputs in test_loader:
+    for inputs in tqdm(test_loader):
         # Transfer the data to the current GPU device.
         if isinstance(inputs, (list,)):
             for i in range(len(inputs)):
@@ -123,7 +124,7 @@ def test(cfg):
 
     print("Loading Video List ...")
     with open(videos_list_file) as f:
-        videos = [x.strip() for x in f.readlines() if len(x.strip()) > 0]
+        videos = sorted([x.strip() for x in f.readlines() if len(x.strip()) > 0])
     print("Done")
     print("----------------------------------------------------------")
 
@@ -135,6 +136,13 @@ def test(cfg):
         # Create video testing loaders.
         path_to_vid = os.path.join(vid_root, os.path.split(vid)[0])
         vid_id = os.path.split(vid)[1]
+        
+        out_path = os.path.join(cfg.OUTPUT_DIR, os.path.split(vid)[0])
+        out_file = vid_id.split(".")[0] + "_{}.npy".format(cfg.DATA.NUM_FRAMES)
+        if os.path.exists(os.path.join(out_path, out_file)):
+            print("{} already exists".format(out_file))
+            continue
+
         print("Processing {}...".format(vid))
 
         dataset = VideoSet(cfg, path_to_vid, vid_id)
@@ -150,8 +158,7 @@ def test(cfg):
 
         # Perform multi-view test on the entire dataset.
         feat_arr = multi_view_test(test_loader, model, cfg)
-        out_path = os.path.join(cfg.OUTPUT_DIR, os.path.split(vid)[0])
-        out_file = vid_id.split(".")[0] + "_{}.npy".format(cfg.DATA.NUM_FRAMES)
+        
         os.makedirs(out_path, exist_ok=True)
         np.save(os.path.join(out_path, out_file), feat_arr)
         print("Done.")
