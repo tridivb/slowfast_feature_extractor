@@ -16,11 +16,11 @@ Steps you followed while encountering the bug
 **Expected behavior**
 A clear and concise description of what you expected to happen.
 
-**Screenshots**
-If applicable, add screenshots to help explain your problem.
+**Screenshots/Code Output**
+If applicable, add screenshots or code output to help explain your problem.
 
 **Desktop (please complete the following information):**
- - OS: [e.g. iOS]
+ - OS: [e.g. Ubuntu 16.04]
  - Python Version
  - PyTorch version
 

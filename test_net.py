@@ -10,6 +10,7 @@ import torch
 import os
 import time
 from tqdm import tqdm
+import av
 
 import slowfast.utils.checkpoint as cu
 import slowfast.utils.distributed as du
@@ -58,7 +59,7 @@ def multi_view_test(test_loader, model, cfg):
         feat = feat.cpu().numpy()
         # Gather all the predictions across all the devices to perform ensemble.
         if cfg.NUM_GPUS > 1:
-            preds, labels, video_idx = du.all_gather([preds, labels, video_idx])
+            preds, feat = du.all_gather([preds, feat])
 
         if feat_arr is None:
             feat_arr = feat
@@ -128,22 +129,33 @@ def test(cfg):
     print("Done")
     print("----------------------------------------------------------")
 
+    rejected_vids = []
+
     print("{} videos to be processed...".format(len(videos)))
     print("----------------------------------------------------------")
 
     start_time = time.time()
-    for vid in videos:
+    for vid_no, vid in enumerate(videos):
         # Create video testing loaders.
         path_to_vid = os.path.join(vid_root, os.path.split(vid)[0])
         vid_id = os.path.split(vid)[1]
+
+        try:
+            _ = av.open(os.path.join(path_to_vid, vid_id))
+        except Exception as e:
+            print("{}. {} cannot be read with error {}".format(vid_no, vid, e))
+            print("----------------------------------------------------------")
+            rejected_vids.append(vid)
+            continue
         
         out_path = os.path.join(cfg.OUTPUT_DIR, os.path.split(vid)[0])
         out_file = vid_id.split(".")[0] + "_{}.npy".format(cfg.DATA.NUM_FRAMES)
         if os.path.exists(os.path.join(out_path, out_file)):
-            print("{} already exists".format(out_file))
+            print("{}. {} already exists".format(vid_no, out_file))
+            print("----------------------------------------------------------")
             continue
 
-        print("Processing {}...".format(vid))
+        print("{}. Processing {}...".format(vid_no, vid))
 
         dataset = VideoSet(cfg, path_to_vid, vid_id)
         test_loader = torch.utils.data.DataLoader(
@@ -163,6 +175,8 @@ def test(cfg):
         np.save(os.path.join(out_path, out_file), feat_arr)
         print("Done.")
         print("----------------------------------------------------------")
+    
+    print("Rejected Videos: {}".format(rejected_vids))
     end_time = time.time()
     hours, minutes, seconds = calculate_time_taken(start_time, end_time)
     print(
