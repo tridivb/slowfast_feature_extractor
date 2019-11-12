@@ -8,7 +8,7 @@ from io import BytesIO
 import torch
 import torch.utils.data
 import numpy as np
-from moviepy.video.io.VideoFileClip import VideoFileClip
+import av
 
 import slowfast.datasets.decoder as decoder
 import slowfast.datasets.transform as transform
@@ -41,44 +41,53 @@ class VideoSet(torch.utils.data.Dataset):
         self.out_fps = cfg.DATA.OUT_FPS
         self.step_size = int(self.in_fps / self.out_fps)
         self.out_size = cfg.DATA.NUM_FRAMES
-
-        self._get_frames()
+        self.frames = self._get_frames()
 
     def _get_frames(self):
         """
-        Extract frames from the video
+        Extract frames from the video container
         """
         path_to_vid = os.path.join(self.vid_path, self.vid_id)
         assert os.path.exists(path_to_vid), "{} file not found".format(path_to_vid)
 
         try:
             # Load video
-            video_clip = VideoFileClip(path_to_vid, audio=False, fps_source="fps")
+            self.video_container = container.get_video_container(path_to_vid)
 
         except Exception as e:
             logger.info(
                 "Failed to load video from {} with error {}".format(path_to_vid, e)
             )
 
-        self.orig_width, self.orig_height = video_clip.size
-        self.frames = None
+        self.orig_width = self.video_container.streams.video[0].width
+        self.orig_height = self.video_container.streams.video[0].height
 
-        for in_frame in video_clip.iter_frames(fps=self.in_fps):
-            if self.frames is None:
-                self.frames = in_frame[None, ...]
-            else:
-                self.frames = np.concatenate((self.frames, in_frame[None, ...]), axis=0)
+        frames = np.zeros(
+            (
+                self.video_container.streams.video[0].frames,
+                self.orig_height,
+                self.orig_width,
+                3,
+            )
+        ).astype(np.float32)
+
+        for ind, in_frame in enumerate(self.video_container.decode(video=0)):
+            if "rgb" not in in_frame.format.name:
+                in_frame = in_frame.to_rgb()
+            frames[ind, :, :, :] = in_frame.to_ndarray()
 
         # convert to tensor
-        self.frames = torch.from_numpy(self.frames).float()
-        
+        frames = torch.from_numpy(frames).float()
+
         # Normalize the values
-        self.frames = self.frames / 255.0
-        self.frames = self.frames - torch.tensor(self.cfg.DATA.MEAN)
-        self.frames = self.frames / torch.tensor(self.cfg.DATA.STD)
+        frames = frames / 255.0
+        frames = frames - torch.tensor(self.cfg.DATA.MEAN)
+        frames = frames / torch.tensor(self.cfg.DATA.STD)
 
         # T H W C -> C T H W.
-        self.frames = self.frames.permute(3, 0, 1, 2)
+        frames = frames.permute(3, 0, 1, 2)
+
+        return frames
 
     def __getitem__(self, index):
         """
@@ -130,7 +139,7 @@ class VideoSet(torch.utils.data.Dataset):
         Returns:
             (int): the number of frames in the video.
         """
-        return self.frames.shape[1]
+        return self.video_container.streams.video[0].frames
 
     def pack_pathway_output(self, frames):
         """
