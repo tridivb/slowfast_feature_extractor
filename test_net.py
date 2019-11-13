@@ -56,10 +56,11 @@ def multi_view_test(test_loader, model, cfg):
 
         # Perform the forward pass.
         preds, feat = model(inputs)
-        feat = feat.cpu().numpy()
         # Gather all the predictions across all the devices to perform ensemble.
         if cfg.NUM_GPUS > 1:
             preds, feat = du.all_gather([preds, feat])
+            
+        feat = feat.cpu().numpy()
 
         if feat_arr is None:
             feat_arr = feat
