@@ -60,7 +60,7 @@ def multi_view_test(test_loader, model, cfg):
         # Gather all the predictions across all the devices to perform ensemble.
         if cfg.NUM_GPUS > 1:
             preds, feat = du.all_gather([preds, feat])
-            
+
         feat = feat.cpu().numpy()
 
         if feat_arr is None:
@@ -131,7 +131,8 @@ def test(cfg):
     print("Done")
     print("----------------------------------------------------------")
 
-    rejected_vids = []
+    if cfg.DATA.READ_VID_FILE:
+        rejected_vids = []
 
     print("{} videos to be processed...".format(len(videos)))
     print("----------------------------------------------------------")
@@ -144,13 +145,17 @@ def test(cfg):
 
         if cfg.DATA.READ_VID_FILE:
             try:
-                _ = VideoFileClip(os.path.join(path_to_vid, vid_id), audio=False, fps_source="fps")
+                _ = VideoFileClip(
+                    os.path.join(path_to_vid, vid_id) + cfg.DATA.VID_FILE_EXT,
+                    audio=False,
+                    fps_source="fps",
+                )
             except Exception as e:
                 print("{}. {} cannot be read with error {}".format(vid_no, vid, e))
                 print("----------------------------------------------------------")
                 rejected_vids.append(vid)
                 continue
-        
+
         out_path = os.path.join(cfg.OUTPUT_DIR, os.path.split(vid)[0])
         out_file = vid_id.split(".")[0] + "_{}.npy".format(cfg.DATA.NUM_FRAMES)
         if os.path.exists(os.path.join(out_path, out_file)):
@@ -160,7 +165,9 @@ def test(cfg):
 
         print("{}. Processing {}...".format(vid_no, vid))
 
-        dataset = VideoSet(cfg, path_to_vid, vid_id, read_vid_file=cfg.DATA.READ_VID_FILE)
+        dataset = VideoSet(
+            cfg, path_to_vid, vid_id, read_vid_file=cfg.DATA.READ_VID_FILE
+        )
         test_loader = torch.utils.data.DataLoader(
             dataset,
             batch_size=cfg.TEST.BATCH_SIZE,
@@ -173,13 +180,15 @@ def test(cfg):
 
         # Perform multi-view test on the entire dataset.
         feat_arr = multi_view_test(test_loader, model, cfg)
-        
+
         os.makedirs(out_path, exist_ok=True)
         np.save(os.path.join(out_path, out_file), feat_arr)
         print("Done.")
         print("----------------------------------------------------------")
-    
-    print("Rejected Videos: {}".format(rejected_vids))
+
+    if cfg.DATA.READ_VID_FILE:
+        print("Rejected Videos: {}".format(rejected_vids))
+
     end_time = time.time()
     hours, minutes, seconds = calculate_time_taken(start_time, end_time)
     print(

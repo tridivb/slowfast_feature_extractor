@@ -15,6 +15,10 @@ DATA:
   IN_FPS: 60
   OUT_FPS: 30
   READ_VID_FILE: False
+  VID_FILE_EXT: ".MP4"
+  IMG_FILE_EXT: ".jpg"
+  IMG_FILE_FORMAT: "frame_{:010d}.jpg"
+  SAMPLE_SIZE: [256, 256]
 SLOWFAST:
   ALPHA: 4
   BETA_INV: 8
