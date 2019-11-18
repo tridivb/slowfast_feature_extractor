@@ -122,8 +122,8 @@ def test(cfg):
     else:
         raise NotImplementedError("Unknown way to load checkpoint.")
 
-    vid_root = cfg.DATA.PATH_TO_DATA_DIR
-    videos_list_file = os.path.join(vid_root, "vid_list.csv")
+    vid_root = os.path.join(cfg.DATA.PATH_TO_DATA_DIR, cfg.DATA.PATH_PREFIX)
+    videos_list_file = os.path.join(cfg.DATA.PATH_TO_DATA_DIR, "vid_list.csv")
 
     print("Loading Video List ...")
     with open(videos_list_file) as f:
@@ -142,13 +142,14 @@ def test(cfg):
         path_to_vid = os.path.join(vid_root, os.path.split(vid)[0])
         vid_id = os.path.split(vid)[1]
 
-        try:
-            _ = VideoFileClip(os.path.join(path_to_vid, vid_id), audio=False, fps_source="fps")
-        except Exception as e:
-            print("{}. {} cannot be read with error {}".format(vid_no, vid, e))
-            print("----------------------------------------------------------")
-            rejected_vids.append(vid)
-            continue
+        if cfg.DATA.READ_VID_FILE:
+            try:
+                _ = VideoFileClip(os.path.join(path_to_vid, vid_id), audio=False, fps_source="fps")
+            except Exception as e:
+                print("{}. {} cannot be read with error {}".format(vid_no, vid, e))
+                print("----------------------------------------------------------")
+                rejected_vids.append(vid)
+                continue
         
         out_path = os.path.join(cfg.OUTPUT_DIR, os.path.split(vid)[0])
         out_file = vid_id.split(".")[0] + "_{}.npy".format(cfg.DATA.NUM_FRAMES)
@@ -159,7 +160,7 @@ def test(cfg):
 
         print("{}. Processing {}...".format(vid_no, vid))
 
-        dataset = VideoSet(cfg, path_to_vid, vid_id)
+        dataset = VideoSet(cfg, path_to_vid, vid_id, read_vid_file=cfg.DATA.READ_VID_FILE)
         test_loader = torch.utils.data.DataLoader(
             dataset,
             batch_size=cfg.TEST.BATCH_SIZE,

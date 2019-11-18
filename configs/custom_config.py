@@ -13,6 +13,9 @@ defcfg._C.DATA.IN_FPS = 60
 # Fps to sample the frames for output
 defcfg._C.DATA.OUT_FPS = 30
 
+# Flag to set video file/image file processing
+defcfg._C.DATA.READ_VID_FILE = True
+
 
 def get_cfg():
     """

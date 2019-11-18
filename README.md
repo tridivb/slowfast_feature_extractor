@@ -81,7 +81,7 @@ DATA:
 
 TEST:
   # be careful with this, inference will run faster with a higher value but can cause out of memory error
-  BATCH_SIZE: 3
+  BATCH_SIZE: 2
 
 # output directory to save features
 OUTPUT_DIR: ""

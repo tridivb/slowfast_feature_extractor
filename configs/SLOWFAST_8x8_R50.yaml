@@ -4,8 +4,8 @@ TRAIN:
   CHECKPOINT_FILE_PATH: "./checkpoints/SLOWFAST_8x8_R50.pkl"
   CHECKPOINT_TYPE: caffe2
 DATA:
-  PATH_TO_DATA_DIR: "/media/data/tridiv/epic_kitchens/EPIC_KITCHENS_2018/videos"
-  PATH_PREFIX: "videos"
+  PATH_TO_DATA_DIR: "/media/data/tridiv/epic_kitchens/EPIC_KITCHENS_2018"
+  PATH_PREFIX: "frames_rgb_flow/rgb"
   NUM_FRAMES: 32
   SAMPLING_RATE: 2
   TRAIN_JITTER_SCALES: [256, 320]
@@ -14,6 +14,7 @@ DATA:
   INPUT_CHANNEL_NUM: [3, 3]
   IN_FPS: 60
   OUT_FPS: 30
+  READ_VID_FILE: False
 SLOWFAST:
   ALPHA: 4
   BETA_INV: 8
