@@ -11,6 +11,7 @@ import os
 import time
 from tqdm import tqdm
 import av
+from moviepy.video.io.VideoFileClip import VideoFileClip
 
 import slowfast.utils.checkpoint as cu
 import slowfast.utils.distributed as du
@@ -142,7 +143,7 @@ def test(cfg):
         vid_id = os.path.split(vid)[1]
 
         try:
-            _ = av.open(os.path.join(path_to_vid, vid_id))
+            _ = VideoFileClip(os.path.join(path_to_vid, vid_id), audio=False, fps_source="fps")
         except Exception as e:
             print("{}. {} cannot be read with error {}".format(vid_no, vid, e))
             print("----------------------------------------------------------")

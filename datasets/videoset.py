@@ -9,6 +9,8 @@ import torch
 import torch.utils.data
 import numpy as np
 import av
+import cv2
+from moviepy.video.io.VideoFileClip import VideoFileClip
 
 import slowfast.datasets.decoder as decoder
 import slowfast.datasets.transform as transform
@@ -52,29 +54,34 @@ class VideoSet(torch.utils.data.Dataset):
 
         try:
             # Load video
-            self.video_container = container.get_video_container(path_to_vid)
+            # self.video_container = container.get_video_container(path_to_vid)
+            video_clip = VideoFileClip(path_to_vid, audio=False, fps_source="fps")
 
         except Exception as e:
             logger.info(
                 "Failed to load video from {} with error {}".format(path_to_vid, e)
             )
 
-        self.orig_width = self.video_container.streams.video[0].width
-        self.orig_height = self.video_container.streams.video[0].height
+        # frames = np.zeros(
+        #     (
+        #         self.video_container.streams.video[0].frames,
+        #         self.cfg.DATA.TEST_CROP_SIZE,
+        #         self.cfg.DATA.TEST_CROP_SIZE,
+        #         3,
+        #     )
+        # ).astype(np.float32)
+        frames = None
 
-        frames = np.zeros(
-            (
-                self.video_container.streams.video[0].frames,
-                self.orig_height,
-                self.orig_width,
-                3,
-            )
-        ).astype(np.float32)
-
-        for ind, in_frame in enumerate(self.video_container.decode(video=0)):
-            if "rgb" not in in_frame.format.name:
-                in_frame = in_frame.to_rgb()
-            frames[ind, :, :, :] = in_frame.to_ndarray()
+        # for ind, in_frame in enumerate(self.video_container.decode(video=0)):
+        #     if "rgb" not in in_frame.format.name:
+        #         in_frame = in_frame.to_rgb()
+        #     in_frame = in_frame.to_ndarray()
+        for in_frame in video_clip.iter_frames(fps=self.cfg.DATA.IN_FPS):
+            in_frame = cv2.resize(in_frame, (self.cfg.DATA.TEST_CROP_SIZE, self.cfg.DATA.TEST_CROP_SIZE), interpolation=cv2.INTER_LINEAR)
+            if frames is None:
+                frames = in_frame[None, ...]
+            else:
+                frames = np.concatenate((frames, in_frame[None, ...]), axis=0)
 
         # convert to tensor
         frames = torch.from_numpy(frames).float()
@@ -106,7 +113,7 @@ class VideoSet(torch.utils.data.Dataset):
         """
 
         frame_seg = torch.zeros(
-            (3, self.out_size, self.orig_height, self.orig_width)
+            (3, self.out_size, self.cfg.DATA.TEST_CROP_SIZE, self.cfg.DATA.TEST_CROP_SIZE)
         ).float()
 
         start = int(index - self.step_size * self.out_size / 2)
@@ -139,7 +146,8 @@ class VideoSet(torch.utils.data.Dataset):
         Returns:
             (int): the number of frames in the video.
         """
-        return self.video_container.streams.video[0].frames
+        # return self.video_container.streams.video[0].frames
+        return self.frames.shape[1]
 
     def pack_pathway_output(self, frames):
         """
