@@ -16,6 +16,8 @@ Python >= 3.6\
 [Pytorch](https://pytorch.org/)  >= 1.3\
 [PySlowFast](https://github.com/facebookresearch/SlowFast.git)\
 PyAv >= 6.2.0
+Moviepy
+OpenCV >= 3.4
 \
 The videos can be setup in the following way:
 
