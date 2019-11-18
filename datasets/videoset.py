@@ -8,7 +8,10 @@ from io import BytesIO
 import torch
 import torch.utils.data
 import numpy as np
+from parse import parse
 import av
+import cv2
+from moviepy.video.io.VideoFileClip import VideoFileClip
 
 import slowfast.datasets.decoder as decoder
 import slowfast.datasets.transform as transform
@@ -25,69 +28,136 @@ class VideoSet(torch.utils.data.Dataset):
     each frame as per the output size i.e. cfg.DATA.NUM_FRAMES.
     """
 
-    def __init__(self, cfg, vid_path, vid_id):
+    def __init__(self, cfg, vid_path, vid_id, read_vid_file=False):
         """
         Construct the video loader for a given video.
         Args:
             cfg (CfgNode): configs.
             vid_path (string): path to the video
             vid_id (string): video name
+            read_vid_file (bool): flag to turn on/off reading video files.
         """
         self.cfg = cfg
 
         self.vid_path = vid_path
         self.vid_id = vid_id
+        self.read_vid_file = read_vid_file
+
         self.in_fps = cfg.DATA.IN_FPS
         self.out_fps = cfg.DATA.OUT_FPS
         self.step_size = int(self.in_fps / self.out_fps)
+
         self.out_size = cfg.DATA.NUM_FRAMES
+
         self.frames = self._get_frames()
+
+        if isinstance(cfg.DATA.SAMPLE_SIZE, list):
+            self.sample_width, self.sample_height = cfg.DATA.SAMPLE_SIZE
+        elif isinstance(cfg.DATA.SAMPLE_SIZE, int):
+            self.sample_width = self.sample_height = cfg.DATA.SAMPLE_SIZE
+        else:
+            raise Exception(
+                "Error: Frame sampling size type must be a list [Height, Width] or int"
+            )
 
     def _get_frames(self):
         """
         Extract frames from the video container
+        Returns:
+            frames(tensor or list): A tensor of extracted frames from a video or a list of images to be processed
         """
-        path_to_vid = os.path.join(self.vid_path, self.vid_id)
-        assert os.path.exists(path_to_vid), "{} file not found".format(path_to_vid)
-
-        try:
-            # Load video
-            self.video_container = container.get_video_container(path_to_vid)
-
-        except Exception as e:
-            logger.info(
-                "Failed to load video from {} with error {}".format(path_to_vid, e)
+        if self.read_vid_file:
+            path_to_vid = (
+                os.path.join(self.vid_path, self.vid_id) + self.cfg.DATA.VID_FILE_EXT
             )
+            assert os.path.exists(path_to_vid), "{} file not found".format(path_to_vid)
 
-        self.orig_width = self.video_container.streams.video[0].width
-        self.orig_height = self.video_container.streams.video[0].height
+            try:
+                # Load video
+                # self.video_container = container.get_video_container(path_to_vid)
+                video_clip = VideoFileClip(path_to_vid, audio=False, fps_source="fps")
 
-        frames = np.zeros(
-            (
-                self.video_container.streams.video[0].frames,
-                self.orig_height,
-                self.orig_width,
-                3,
+            except Exception as e:
+                logger.info(
+                    "Failed to load video from {} with error {}".format(path_to_vid, e)
+                )
+
+            frames = None
+
+            for in_frame in video_clip.iter_frames(fps=self.cfg.DATA.IN_FPS):
+                in_frame = cv2.resize(
+                    in_frame,
+                    (self.sample_width, self.sample_height),
+                    interpolation=cv2.INTER_LINEAR,
+                )
+                if frames is None:
+                    frames = in_frame[None, ...]
+                else:
+                    frames = np.concatenate((frames, in_frame[None, ...]), axis=0)
+
+            frames = self._pre_process_frame(frames)
+
+            return frames
+
+        else:
+            path_to_frames = os.path.join(self.vid_path, self.vid_id)
+            frames = sorted(
+                filter(
+                    lambda x: x.endswith(self.cfg.DATA.IMG_FILE_EXT),
+                    os.listdir(path_to_frames),
+                ),
+                key=lambda x: parse(self.cfg.DATA.IMG_FILE_FORMAT, x)[0],
             )
-        ).astype(np.float32)
+            return frames
 
-        for ind, in_frame in enumerate(self.video_container.decode(video=0)):
-            if "rgb" not in in_frame.format.name:
-                in_frame = in_frame.to_rgb()
-            frames[ind, :, :, :] = in_frame.to_ndarray()
-
-        # convert to tensor
-        frames = torch.from_numpy(frames).float()
+    def _pre_process_frame(self, arr):
+        """
+        Pre process an array
+        Args:
+            arr (ndarray): an array of frames or a ndarray of an image
+                of shape T x H x W x C or W x H x C respectively
+        Returns:
+            arr (tensor): a normalized torch tensor of shape C x T x H x W 
+                or C x W x H respectively
+        """
+        arr = torch.from_numpy(arr).float()
 
         # Normalize the values
-        frames = frames / 255.0
-        frames = frames - torch.tensor(self.cfg.DATA.MEAN)
-        frames = frames / torch.tensor(self.cfg.DATA.STD)
+        arr = arr / 255.0
+        arr = arr - torch.tensor(self.cfg.DATA.MEAN)
+        arr = arr / torch.tensor(self.cfg.DATA.STD)
 
         # T H W C -> C T H W.
-        frames = frames.permute(3, 0, 1, 2)
+        if len(arr.shape) == 4:
+            arr = arr.permute(3, 0, 1, 2)
+        elif len(arr.shape) == 3:
+            arr = arr.permute(2, 0, 1)
 
-        return frames
+        return arr
+
+    def _read_img_file(self, path, file):
+        """
+        Read an image file
+        Args:
+            path (str): path to the image file
+            file (str): name of image file
+        Returns:
+            img (tensor): a normalized torch tensor
+        """
+        img = cv2.imread(os.path.join(path, file))
+
+        if len(img.shape) != 3:
+            raise Exception(
+                "Incorrect image format. Image needs to be read in RGB format."
+            )
+
+        img = cv2.resize(
+            img,
+            (self.sample_width, self.sample_height),
+            interpolation=cv2.INTER_LINEAR,
+        )
+        img = self._pre_process_frame(img)
+        return img
 
     def __getitem__(self, index):
         """
@@ -106,28 +176,28 @@ class VideoSet(torch.utils.data.Dataset):
         """
 
         frame_seg = torch.zeros(
-            (3, self.out_size, self.orig_height, self.orig_width)
+            (
+                3,
+                self.out_size,
+                self.cfg.DATA.TEST_CROP_SIZE,
+                self.cfg.DATA.TEST_CROP_SIZE,
+            )
         ).float()
 
         start = int(index - self.step_size * self.out_size / 2)
         end = int(index + self.step_size * self.out_size / 2)
-        for ind in range(start, end, self.step_size):
-            if ind < 0 or ind >= self.frames.shape[0]:
+        max_ind = self.__len__() - 1
+
+        for out_ind, ind in enumerate(range(start, end, self.step_size)):
+            if ind < 0 or ind > max_ind:
                 continue
             else:
-                frame_seg[:, ind, :, :] = self.frames[:, ind, :, :]
-
-        min_scale, max_scale, crop_size = [self.cfg.DATA.TEST_CROP_SIZE] * 3
-        assert len({min_scale, max_scale, crop_size}) == 1
-
-        # Perform data augmentation.
-        frame_seg = self.spatial_sampling(
-            frame_seg,
-            spatial_idx=1,
-            min_scale=min_scale,
-            max_scale=max_scale,
-            crop_size=crop_size,
-        )
+                if self.read_vid_file:
+                    frame_seg[:, out_ind, :, :] = self.frames[:, ind, :, :]
+                else:
+                    frame_seg[:, out_ind, :, :] = self._read_img_file(
+                        os.path.join(self.vid_path, self.vid_id), self.frames[ind]
+                    )
 
         # create the pathways
         frame_list = self.pack_pathway_output(frame_seg)
@@ -139,7 +209,11 @@ class VideoSet(torch.utils.data.Dataset):
         Returns:
             (int): the number of frames in the video.
         """
-        return self.video_container.streams.video[0].frames
+        # return self.video_container.streams.video[0].frames
+        if self.read_vid_file:
+            return self.frames.shape[1]
+        else:
+            return len(self.frames)
 
     def pack_pathway_output(self, frames):
         """
@@ -174,42 +248,3 @@ class VideoSet(torch.utils.data.Dataset):
                 )
             )
         return frame_list
-
-    def spatial_sampling(
-        self, frames, spatial_idx=-1, min_scale=256, max_scale=320, crop_size=224,
-    ):
-        """
-        Perform spatial sampling on the given video frames. If spatial_idx is
-        -1, perform random scale, random crop, and random flip on the given
-        frames. If spatial_idx is 0, 1, or 2, perform spatial uniform sampling
-        with the given spatial_idx.
-        Args:
-            frames (tensor): frames of images sampled from the video. The
-                dimension is `num frames` x `height` x `width` x `channel`.
-            spatial_idx (int): if -1, perform random spatial sampling. If 0, 1,
-                or 2, perform left, center, right crop if width is larger than
-                height, and perform top, center, buttom crop if height is larger
-                than width.
-            min_scale (int): the minimal size of scaling.
-            max_scale (int): the maximal size of scaling.
-            crop_size (int): the size of height and width used to crop the
-                frames.
-        Returns:
-            frames (tensor): spatially sampled frames.
-        """
-        assert spatial_idx in [-1, 0, 1, 2]
-        if spatial_idx == -1:
-            frames = transform.random_short_side_scale_jitter(
-                frames, min_scale, max_scale
-            )
-            frames = transform.random_crop(frames, crop_size)
-            frames = transform.horizontal_flip(0.5, frames)
-        else:
-            # The testing is deterministic and no jitter should be performed.
-            # min_scale, max_scale, and crop_size are expect to be the same.
-            assert len({min_scale, max_scale, crop_size}) == 1
-            frames = transform.random_short_side_scale_jitter(
-                frames, min_scale, max_scale
-            )
-            frames = transform.uniform_crop(frames, crop_size, spatial_idx)
-        return frames

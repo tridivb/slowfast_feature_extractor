@@ -15,14 +15,16 @@ git clone git@github.com:tridivb/slowfast_feature_extractor.git
 Python >= 3.6\
 [Pytorch](https://pytorch.org/)  >= 1.3\
 [PySlowFast](https://github.com/facebookresearch/SlowFast.git)\
-PyAv >= 6.2.0
+PyAv >= 6.2.0\
+Moviepy >= 1.0\
+OpenCV >= 3.4
 \
 The videos can be setup in the following way:
 
 ```
 |---<path to dataset>
 |   |---vid_list.csv
-|   |---video_1.avi
+|   |---video_1.mp4
 |   |---video_2
 |   |   |---video_2.mp4
 |   |   |---.
@@ -30,11 +32,30 @@ The videos can be setup in the following way:
 
 ```
 
-The vid_list.csv should have the paths of all the videos. Based on the hierarchy above, it would like as follows:
+or pre-process the videos and extract the frames like below:
+```
+|---<path to dataset>
+|   |---vid_list.csv
+|   |---video_1
+|   |   |---frame01.jpg
+|   |   |---frame02.jpg
+|   |   |---.
+|   |---video_2
+|   |   |---video_2
+|   |   |   |---frame01.jpg
+|   |   |   |---frame02.jpg
+|   |   |   |---.
+|   |---.
 
 ```
-video_1.avi
-video2/video_2.mp4
+
+The vid_list.csv should have the paths of all the videos or subdirectories for extracted frames. 
+All the videos/image files should have the same type of extension.
+Based on the hierarchy above, it should be like:
+
+```
+video_1
+video2/video_2
 ...
 ...
 ...
@@ -54,6 +75,8 @@ from the PySlowFast Model Zoo and copy it to your desired location
 
 ### Configure the paramters
 
+Use the existing config file in ./configs or copy over the corresponding one for your desired model from where you cloned the PySlowFast framework.
+\
 Set the following paths in the ./configs/<config_file>.yaml file:
 
 ```
@@ -66,7 +89,7 @@ TRAIN:
 DATA:
   # Root dir of dataset
   PATH_TO_DATA_DIR: ""
-  # Path prefix for each video, can be set as same as root dir unless your directory hierarchy is different
+  # Path prefix for each video or subdirectory where extracted frames are kept
   PATH_PREFIX: ""
   # size of sampled window centered on each frame
   NUM_FRAMES: 32
@@ -74,6 +97,16 @@ DATA:
   IN_FPS: 15
   # fps value to sample videos at
   OUT_FPS: 15
+  # Flag to turn on/off processing frames from video files. If False, it will try to read extracted image frames.
+  READ_VID_FILE: False
+  # File extension of video files (case-sensitive). Set this if you want to read the video files.
+  VID_FILE_EXT: ".MP4"
+  # File extension of image files (case-sensitive). Set this if you want to read the pre-processed frames.
+  IMG_FILE_EXT: ".jpg"
+  # File naming format of image files (case-sensitive). Set this if you want to read the pre-processed frames.
+  IMG_FILE_FORMAT: "frame_{:010d}.jpg"
+  # Sampling height and width of each extracted frame. This can be a list or int value
+  SAMPLE_SIZE: [256, 256]
 
 TEST:
   # be careful with this, inference will run faster with a higher value but can cause out of memory error
@@ -92,8 +125,7 @@ python run_net.py --cfg ./configs/<config_file>.yaml
 ```
 
 For our case, we used the SlowFast network with a Resnet50 backbone, frame length of 8 and sample rate of 8.\
-If you want to use a different model, copy the corresponding config file from where you cloned the PySlowFast framework
-and download the weights.
+If you want to use a different model, copy over the corresponding config file and download the weights.
 
 ### Results
 
