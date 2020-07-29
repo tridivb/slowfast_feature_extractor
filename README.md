@@ -2,6 +2,11 @@
 
 Extract features from videos with a pre-trained SlowFast model using the PySlowFast framework
 
+## TODO
+
+1. Create requirements file with more extensive installation instructions
+2. Test with latest Pytorch and update dependencies
+
 ## Getting Started
 
 Clone the repo and set it up in your local drive.
