@@ -1,11 +1,14 @@
 # SlowFast Feature Extractor
 
-Extract features from videos with a pre-trained SlowFast model using the PySlowFast framework
+Extract features from videos with a pre-trained SlowFast model using the PySlowFast framework.
+
+**Note**: This is currently broken due to the dependencies on Slowfast and Detectron2 frameworks. We are working on fixing this.
 
 ## TODO
 
 1. Create requirements file with more extensive installation instructions
 2. Test with latest Pytorch and update dependencies
+3. Minimize code dependency on Slowfast framework
 
 ## Getting Started
 
