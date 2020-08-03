@@ -16,11 +16,14 @@ from moviepy.video.io.VideoFileClip import VideoFileClip
 import slowfast.datasets.decoder as decoder
 import slowfast.datasets.transform as transform
 import slowfast.datasets.video_container as container
+from slowfast.datasets.utils import pack_pathway_output
+from slowfast.datasets import DATASET_REGISTRY
 import slowfast.utils.logging as logging
 
 logger = logging.get_logger(__name__)
 
 
+@DATASET_REGISTRY.register()
 class VideoSet(torch.utils.data.Dataset):
     """
     Construct the untrimmed video loader, then sample
@@ -49,8 +52,6 @@ class VideoSet(torch.utils.data.Dataset):
 
         self.out_size = cfg.DATA.NUM_FRAMES
 
-        self.frames = self._get_frames()
-
         if isinstance(cfg.DATA.SAMPLE_SIZE, list):
             self.sample_width, self.sample_height = cfg.DATA.SAMPLE_SIZE
         elif isinstance(cfg.DATA.SAMPLE_SIZE, int):
@@ -59,6 +60,8 @@ class VideoSet(torch.utils.data.Dataset):
             raise Exception(
                 "Error: Frame sampling size type must be a list [Height, Width] or int"
             )
+
+        self.frames = self._get_frames()
 
     def _get_frames(self):
         """
@@ -200,7 +203,7 @@ class VideoSet(torch.utils.data.Dataset):
                     )
 
         # create the pathways
-        frame_list = self.pack_pathway_output(frame_seg)
+        frame_list = pack_pathway_output(self.cfg, frame_seg)
 
         return frame_list
 
@@ -214,37 +217,3 @@ class VideoSet(torch.utils.data.Dataset):
             return self.frames.shape[1]
         else:
             return len(self.frames)
-
-    def pack_pathway_output(self, frames):
-        """
-        Prepare output as a list of tensors. Each tensor corresponding to a
-        unique pathway.
-        Args:
-            frames (tensor): frames of images sampled from the video. The
-                dimension is `channel` x `num frames` x `height` x `width`.
-        Returns:
-            frame_list (list): list of tensors with the dimension of
-                `channel` x `num frames` x `height` x `width`.
-        """
-        if self.cfg.MODEL.ARCH in self.cfg.MODEL.SINGLE_PATHWAY_ARCH:
-            frame_list = [frames]
-        elif self.cfg.MODEL.ARCH in self.cfg.MODEL.MULTI_PATHWAY_ARCH:
-            fast_pathway = frames
-            # Perform temporal sampling from the fast pathway.
-            slow_pathway = torch.index_select(
-                frames,
-                1,
-                torch.linspace(
-                    0, frames.shape[1] - 1, frames.shape[1] // self.cfg.SLOWFAST.ALPHA,
-                ).long(),
-            )
-            frame_list = [slow_pathway, fast_pathway]
-        else:
-            raise NotImplementedError(
-                "Model arch {} is not in {}".format(
-                    self.cfg.MODEL.ARCH,
-                    self.cfg.MODEL.SINGLE_PATHWAY_ARCH
-                    + self.cfg.MODEL.MULTI_PATHWAY_ARCH,
-                )
-            )
-        return frame_list

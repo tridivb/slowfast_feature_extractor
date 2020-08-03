@@ -7,16 +7,18 @@ Extract features from videos with a pre-trained SlowFast model using the PySlowF
 ## TODO
 
 1. Create requirements file with more extensive installation instructions
-2. Test with latest Pytorch and update dependencies
-3. Minimize code dependency on Slowfast framework
+2. Test with latest Pytorch and update dependencies -- Done
+3. Minimize code dependency on Slowfast framework -- Done
 
 ## Getting Started
 
 Clone the repo and set it up in your local drive.
 
 ```
-git clone git@github.com:tridivb/slowfast_feature_extractor.git
+git clone https://github.com/tridivb/slowfast_feature_extractor.git
 ```
+
+It is recommended to use conda environment to install the requirements.
 
 ### Prerequisites
 
@@ -106,7 +108,7 @@ DATA:
   # fps value to sample videos at
   OUT_FPS: 15
   # Flag to turn on/off processing frames from video files. If False, it will try to read extracted image frames.
-  READ_VID_FILE: False
+  READ_VID_FILE: True
   # File extension of video files (case-sensitive). Set this if you want to read the video files.
   VID_FILE_EXT: ".MP4"
   # File extension of image files (case-sensitive). Set this if you want to read the pre-processed frames.
