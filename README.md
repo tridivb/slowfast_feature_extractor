@@ -2,31 +2,59 @@
 
 Extract features from videos with a pre-trained SlowFast model using the PySlowFast framework.
 
-**Note**: This is currently broken due to the dependencies on Slowfast and Detectron2 frameworks. We are working on fixing this.
+**Update**: The installation instructions has been updated for the latest Pytorch 1.6 and Torchvision 0.7 with Cuda 10.2. Please follow the new instructions to refresh the Pyslowfast installation if you had already done it before.
 
-## TODO
+## Install requirements
 
-1. Create requirements file with more extensive installation instructions
-2. Test with latest Pytorch and update dependencies
-3. Minimize code dependency on Slowfast framework
+1. Ubuntu 16.x/18.x (Only tested on these two systems)
+2. Cuda 10.2
+3. Python >= 3.7
+4. [Pytorch](https://pytorch.org/)  >= 1.6
+5. [PySlowFast](https://github.com/facebookresearch/SlowFast.git) >= 1.0
+6. PyAv >= 8.x
+7. Moviepy >= 1.0
+8. OpenCV >= 4.x
+
+It is recommended to use conda environment to install the dependencies.
+
+You can create the conda environment with the command:
+
+```
+conda create -n "slowfast" python=3.7
+```
+
+Install Pytorch 1.6 and Torchvision 0.7 with conda or pip. (https://pytorch.org/get-started/locally/)
+
+Install the following dependencies with pip:
+
+```
+pip install 'git+https://github.com/facebookresearch/fvcore'
+pip install simplejson av psutil opencv-python tensorboard moviepy cython
+```
+
+Install detectron2:
+```
+python -m pip install 'git+https://github.com/facebookresearch/detectron2.git'
+```
+
+Setup Pyslowfast:
+```
+git clone https://github.com/facebookresearch/slowfast
+export PYTHONPATH=/path/to/slowfast:$PYTHONPATH
+cd slowfast
+python setup.py build develop
+```
 
 ## Getting Started
 
 Clone the repo and set it up in your local drive.
 
 ```
-git clone git@github.com:tridivb/slowfast_feature_extractor.git
+git clone https://github.com/tridivb/slowfast_feature_extractor.git
 ```
 
-### Prerequisites
+## Data Preparation
 
-Python >= 3.6\
-[Pytorch](https://pytorch.org/)  >= 1.3\
-[PySlowFast](https://github.com/facebookresearch/SlowFast.git)\
-PyAv >= 6.2.0\
-Moviepy >= 1.0\
-OpenCV >= 3.4
-\
 The videos can be setup in the following way:
 
 ```
@@ -69,22 +97,20 @@ video2/video_2
 ...
 ```
 
-### Installing
-\
-Navigate to the slowfast_feature_extractor directory\
+## Pretrained weights
+
+Navigate to the slowfast_feature_extractor directory.
 
 ```
-git clone git@github.com:tridivb/slowfast_feature_extractor.git
-cd slowfast_feature_extractor/
+cd /path/to/slowfast_feature_extractor
 ```
-\
-Download the pre-trained [weights](https://github.com/facebookresearch/SlowFast/blob/master/MODEL_ZOO.md) 
-from the PySlowFast Model Zoo and copy it to your desired location
 
-### Configure the paramters
+Download the pre-trained [weights](https://github.com/facebookresearch/SlowFast/blob/master/MODEL_ZOO.md) from the PySlowFast Model Zoo and copy it to your desired location.
+
+## Configure the paramters
 
 Use the existing config file in ./configs or copy over the corresponding one for your desired model from where you cloned the PySlowFast framework.
-\
+
 Set the following paths in the ./configs/<config_file>.yaml file:
 
 ```
@@ -106,7 +132,7 @@ DATA:
   # fps value to sample videos at
   OUT_FPS: 15
   # Flag to turn on/off processing frames from video files. If False, it will try to read extracted image frames.
-  READ_VID_FILE: False
+  READ_VID_FILE: True
   # File extension of video files (case-sensitive). Set this if you want to read the video files.
   VID_FILE_EXT: ".MP4"
   # File extension of image files (case-sensitive). Set this if you want to read the pre-processed frames.
@@ -124,7 +150,9 @@ TEST:
 OUTPUT_DIR: ""
 ```
 
-### Extracting the features and detections
+If you don't want to commit the config file, rename it as <config_file>.yaml.local.
+
+## Extracting the features and detections
 
 To extract features, execute the run_net.py as follows:
 
@@ -135,7 +163,7 @@ python run_net.py --cfg ./configs/<config_file>.yaml
 For our case, we used the SlowFast network with a Resnet50 backbone, frame length of 8 and sample rate of 8.\
 If you want to use a different model, copy over the corresponding config file and download the weights.
 
-### Results
+## Results
 
 The detections are saved in the following format for each video:
 
@@ -150,12 +178,12 @@ The detections are saved in the following format for each video:
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.\
-\
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
 Please note, the original PySlowFast frames is licensed under the Apache 2.0 license. Please respect the original licenses as well.
 
 ## Acknowledgments
 
-1. The code was built on top of the [PySlowFast](https://github.com/facebookresearch/SlowFast.git) framework provided by Facebook. Some of the model and dataloader code was modified to fit the needs of feature extraction from videos
+1. The code was built on top of the [PySlowFast](https://github.com/facebookresearch/SlowFast.git) framework provided by Facebook. Some of the model and dataset code was modified to fit the needs of feature extraction from videos.
 
 2. Readme Template -> https://gist.github.com/PurpleBooth/109311bb0361f32d87a2

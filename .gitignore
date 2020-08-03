@@ -106,3 +106,8 @@ venv.bak/
 # misc
 .vscode
 checkpoints/
+videos/
+features/
+
+# local config
+*.yaml.local

@@ -18,9 +18,8 @@ import slowfast.utils.distributed as du
 import slowfast.utils.logging as logging
 import slowfast.utils.misc as misc
 
-from models import model_builder
-from datasets import loader
-from datasets.videoset import VideoSet
+from models import build_model
+from datasets import VideoSet
 
 logger = logging.get_logger(__name__)
 
@@ -32,7 +31,8 @@ def calculate_time_taken(start_time, end_time):
     return hours, minutes, seconds
 
 
-def multi_view_test(test_loader, model, cfg):
+@torch.no_grad()
+def perform_inference(test_loader, model, cfg):
     """
     Perform mutli-view testing that samples a segment of frames from a video
     and extract features from a pre-trained model.
@@ -78,49 +78,24 @@ def test(cfg):
         cfg (CfgNode): configs. Details can be found in
             slowfast/config/defaults.py
     """
+
     # Set random seed from configs.
     np.random.seed(cfg.RNG_SEED)
     torch.manual_seed(cfg.RNG_SEED)
 
     # Setup logging format.
-    logging.setup_logging()
+    logging.setup_logging(cfg.OUTPUT_DIR)
 
     # Print config.
     logger.info("Test with config:")
     logger.info(cfg)
 
     # Build the video model and print model statistics.
-    model = model_builder.build_model(cfg)
-    if du.is_master_proc():
-        misc.log_model_info(model)
+    model = build_model(cfg)
+    if du.is_master_proc() and cfg.LOG_MODEL_INFO:
+        misc.log_model_info(model, cfg, use_train_input=False)
 
-    # Load a checkpoint to test if applicable.
-    if cfg.TEST.CHECKPOINT_FILE_PATH != "":
-        cu.load_checkpoint(
-            cfg.TEST.CHECKPOINT_FILE_PATH,
-            model,
-            cfg.NUM_GPUS > 1,
-            None,
-            inflation=False,
-            convert_from_caffe2=cfg.TEST.CHECKPOINT_TYPE == "caffe2",
-        )
-    elif cu.has_checkpoint(cfg.OUTPUT_DIR):
-        last_checkpoint = cu.get_last_checkpoint(cfg.OUTPUT_DIR)
-        cu.load_checkpoint(last_checkpoint, model, cfg.NUM_GPUS > 1)
-    elif cfg.TRAIN.CHECKPOINT_FILE_PATH != "":
-        # If no checkpoint found in TEST.CHECKPOINT_FILE_PATH or in the current
-        # checkpoint folder, try to load checkpint from
-        # TRAIN.CHECKPOINT_FILE_PATH and test it.
-        cu.load_checkpoint(
-            cfg.TRAIN.CHECKPOINT_FILE_PATH,
-            model,
-            cfg.NUM_GPUS > 1,
-            None,
-            inflation=False,
-            convert_from_caffe2=cfg.TRAIN.CHECKPOINT_TYPE == "caffe2",
-        )
-    else:
-        raise NotImplementedError("Unknown way to load checkpoint.")
+    cu.load_test_checkpoint(cfg, model)
 
     vid_root = os.path.join(cfg.DATA.PATH_TO_DATA_DIR, cfg.DATA.PATH_PREFIX)
     videos_list_file = os.path.join(cfg.DATA.PATH_TO_DATA_DIR, "vid_list.csv")
@@ -179,7 +154,7 @@ def test(cfg):
         )
 
         # Perform multi-view test on the entire dataset.
-        feat_arr = multi_view_test(test_loader, model, cfg)
+        feat_arr = perform_inference(test_loader, model, cfg)
 
         os.makedirs(out_path, exist_ok=True)
         np.save(os.path.join(out_path, out_file), feat_arr)
