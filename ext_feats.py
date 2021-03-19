@@ -13,10 +13,16 @@ from tqdm import tqdm
 import av
 from moviepy.video.io.VideoFileClip import VideoFileClip
 
+from configs.custom_config import load_config
+
+from slowfast.utils.misc import launch_job
+from slowfast.utils.parser import parse_args
 import slowfast.utils.checkpoint as cu
 import slowfast.utils.distributed as du
 import slowfast.utils.logging as logging
 import slowfast.utils.misc as misc
+
+# from slowfast.models import build_model
 
 from models import build_model
 from datasets import VideoSet
@@ -48,12 +54,13 @@ def perform_inference(test_loader, model, cfg):
     feat_arr = None
 
     for inputs in tqdm(test_loader):
-        # Transfer the data to the current GPU device.
-        if isinstance(inputs, (list,)):
-            for i in range(len(inputs)):
-                inputs[i] = inputs[i].cuda(non_blocking=True)
-        else:
-            inputs = inputs.cuda(non_blocking=True)
+        if torch.cuda.is_available():
+            # Transfer the data to the current GPU device.
+            if isinstance(inputs, (list,)):
+                for i in range(len(inputs)):
+                    inputs[i] = inputs[i].cuda(non_blocking=True)
+            else:
+                inputs = inputs.cuda(non_blocking=True)
 
         # Perform the forward pass.
         preds, feat = model(inputs)
@@ -86,11 +93,11 @@ def test(cfg):
     # Setup logging format.
     logging.setup_logging(cfg.OUTPUT_DIR)
 
-    # Print config.
+    # logger.info config.
     logger.info("Test with config:")
     logger.info(cfg)
 
-    # Build the video model and print model statistics.
+    # Build the video model and logger.info model statistics.
     model = build_model(cfg)
     if du.is_master_proc() and cfg.LOG_MODEL_INFO:
         misc.log_model_info(model, cfg, use_train_input=False)
@@ -98,22 +105,16 @@ def test(cfg):
     cu.load_test_checkpoint(cfg, model)
 
     vid_root = os.path.join(cfg.DATA.PATH_TO_DATA_DIR, cfg.DATA.PATH_PREFIX)
-    videos_list_file = os.path.join(cfg.DATA.PATH_TO_DATA_DIR, "vid_list.csv")
-
-    print("Loading Video List ...")
-    with open(videos_list_file) as f:
-        videos = sorted([x.strip() for x in f.readlines() if len(x.strip()) > 0])
-    print("Done")
-    print("----------------------------------------------------------")
 
     if cfg.DATA.READ_VID_FILE:
         rejected_vids = []
 
-    print("{} videos to be processed...".format(len(videos)))
-    print("----------------------------------------------------------")
+    # logger.info("{} videos to be processed...".format(len(videos)))
+    # logger.info("----------------------------------------------------------")
 
     start_time = time.time()
-    for vid_no, vid in enumerate(videos):
+    # for vid_no, vid in enumerate(videos):
+    for vid_no, vid in enumerate(os.listdir(vid_root)):
         # Create video testing loaders.
         path_to_vid = os.path.join(vid_root, os.path.split(vid)[0])
         vid_id = os.path.split(vid)[1]
@@ -121,24 +122,28 @@ def test(cfg):
         if cfg.DATA.READ_VID_FILE:
             try:
                 _ = VideoFileClip(
-                    os.path.join(path_to_vid, vid_id) + cfg.DATA.VID_FILE_EXT,
+                    os.path.join(path_to_vid, vid),
                     audio=False,
                     fps_source="fps",
                 )
             except Exception as e:
-                print("{}. {} cannot be read with error {}".format(vid_no, vid, e))
-                print("----------------------------------------------------------")
+                logger.info(
+                    "{}. {} cannot be read with error {}".format(vid_no, vid, e)
+                )
+                logger.info(
+                    "----------------------------------------------------------"
+                )
                 rejected_vids.append(vid)
                 continue
 
         out_path = os.path.join(cfg.OUTPUT_DIR, os.path.split(vid)[0])
-        out_file = vid_id.split(".")[0] + "_{}.npy".format(cfg.DATA.NUM_FRAMES)
-        if os.path.exists(os.path.join(out_path, out_file)):
-            print("{}. {} already exists".format(vid_no, out_file))
-            print("----------------------------------------------------------")
-            continue
+        out_file = f"{os.path.splitext(vid)[0]}_{cfg.DATA.NUM_FRAMES}.npy"
+        # if os.path.exists(os.path.join(out_path, out_file)):
+        #     logger.info("{}. {} already exists".format(vid_no, out_file))
+        #     logger.info("----------------------------------------------------------")
+        #     continue
 
-        print("{}. Processing {}...".format(vid_no, vid))
+        logger.info("{}. Processing {}...".format(vid_no, vid))
 
         dataset = VideoSet(
             cfg, path_to_vid, vid_id, read_vid_file=cfg.DATA.READ_VID_FILE
@@ -158,17 +163,26 @@ def test(cfg):
 
         os.makedirs(out_path, exist_ok=True)
         np.save(os.path.join(out_path, out_file), feat_arr)
-        print("Done.")
-        print("----------------------------------------------------------")
+        logger.info("Done.")
+        logger.info("----------------------------------------------------------")
 
     if cfg.DATA.READ_VID_FILE:
-        print("Rejected Videos: {}".format(rejected_vids))
+        logger.info("Rejected Videos: {}".format(rejected_vids))
 
     end_time = time.time()
     hours, minutes, seconds = calculate_time_taken(start_time, end_time)
-    print(
+    logger.info(
         "Time taken: {} hour(s), {} minute(s) and {} second(s)".format(
             hours, minutes, seconds
         )
     )
-    print("----------------------------------------------------------")
+    logger.info("----------------------------------------------------------")
+
+
+if __name__ == "__main__":
+    args = parse_args()
+    cfg = load_config(args)
+
+    # Perform multi-clip testing.
+    if cfg.TEST.ENABLE:
+        launch_job(cfg=cfg, init_method=args.init_method, func=test)

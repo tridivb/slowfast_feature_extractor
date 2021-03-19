@@ -110,4 +110,4 @@ videos/
 features/
 
 # local config
-*.yaml.local
+*.local.yaml

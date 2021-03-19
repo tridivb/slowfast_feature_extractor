@@ -7,9 +7,12 @@ import torch
 from fvcore.common.registry import Registry
 
 from slowfast.models.video_model_builder import _POOL1
+import slowfast.utils.logging as logging
 
-from .video_model_builder import SlowFastFeat, ResNetFeat
-from .head_helper import ResNetBasicHead
+# from .video_model_builder import SlowFastFeat, ResNetFeat
+from models.head_helper import ResNetBasicHeadFeat
+
+logger = logging.get_logger(__name__)
 
 
 MODEL_REGISTRY = Registry("MODEL")
@@ -40,14 +43,15 @@ def build_model(cfg):
 
     # Construct the model
     name = cfg.MODEL.MODEL_NAME
-    # model = MODEL_REGISTRY.get(name)(cfg)
+    logger.info(name)
+    model = MODEL_REGISTRY.get(name)(cfg)
 
     # load feature extractor models
     width_per_group = cfg.RESNET.WIDTH_PER_GROUP
     pool_size = _POOL1[cfg.MODEL.ARCH]
-    if name == "SlowFast":
-        model = SlowFastFeat(cfg)
-        model.head = ResNetBasicHead(
+    if name == "SlowFastFeat":
+        # model = SlowFastFeat(cfg)
+        model.head = ResNetBasicHeadFeat(
             dim_in=[
                 width_per_group * 32,
                 width_per_group * 32 // cfg.SLOWFAST.BETA_INV,
@@ -58,21 +62,21 @@ def build_model(cfg):
             else [
                 [
                     cfg.DATA.NUM_FRAMES // cfg.SLOWFAST.ALPHA // pool_size[0][0],
-                    cfg.DATA.CROP_SIZE // 32 // pool_size[0][1],
-                    cfg.DATA.CROP_SIZE // 32 // pool_size[0][2],
+                    cfg.DATA.TRAIN_CROP_SIZE // 32 // pool_size[0][1],
+                    cfg.DATA.TRAIN_CROP_SIZE // 32 // pool_size[0][2],
                 ],
                 [
                     cfg.DATA.NUM_FRAMES // pool_size[1][0],
-                    cfg.DATA.CROP_SIZE // 32 // pool_size[1][1],
-                    cfg.DATA.CROP_SIZE // 32 // pool_size[1][2],
+                    cfg.DATA.TRAIN_CROP_SIZE // 32 // pool_size[1][1],
+                    cfg.DATA.TRAIN_CROP_SIZE // 32 // pool_size[1][2],
                 ],
             ],  # None for AdaptiveAvgPool3d((1, 1, 1))
             dropout_rate=cfg.MODEL.DROPOUT_RATE,
             act_func=cfg.MODEL.HEAD_ACT,
         )
-    elif name == "ResNet":
-        model = ResNetFeat(cfg)
-        model.head = ResNetBasicHead(
+    elif name == "ResNetFeat":
+        # model = ResNetFeat(cfg)
+        model.head = ResNetBasicHeadFeat(
             dim_in=[width_per_group * 32],
             num_classes=cfg.MODEL.NUM_CLASSES,
             pool_size=[None, None]
@@ -80,8 +84,8 @@ def build_model(cfg):
             else [
                 [
                     cfg.DATA.NUM_FRAMES // pool_size[0][0],
-                    cfg.DATA.CROP_SIZE // 32 // pool_size[0][1],
-                    cfg.DATA.CROP_SIZE // 32 // pool_size[0][2],
+                    cfg.DATA.TRAIN_CROP_SIZE // 32 // pool_size[0][1],
+                    cfg.DATA.TRAIN_CROP_SIZE // 32 // pool_size[0][2],
                 ]
             ],  # None for AdaptiveAvgPool3d((1, 1, 1))
             dropout_rate=cfg.MODEL.DROPOUT_RATE,

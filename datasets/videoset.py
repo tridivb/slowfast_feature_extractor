@@ -70,9 +70,7 @@ class VideoSet(torch.utils.data.Dataset):
             frames(tensor or list): A tensor of extracted frames from a video or a list of images to be processed
         """
         if self.read_vid_file:
-            path_to_vid = (
-                os.path.join(self.vid_path, self.vid_id) + self.cfg.DATA.VID_FILE_EXT
-            )
+            path_to_vid = os.path.join(self.vid_path, self.vid_id)
             assert os.path.exists(path_to_vid), "{} file not found".format(path_to_vid)
 
             try:
@@ -85,18 +83,18 @@ class VideoSet(torch.utils.data.Dataset):
                     "Failed to load video from {} with error {}".format(path_to_vid, e)
                 )
 
-            frames = None
+            frames = []
 
+            logger.info("Loading frames to memory...")
             for in_frame in video_clip.iter_frames(fps=self.cfg.DATA.IN_FPS):
                 in_frame = cv2.resize(
                     in_frame,
                     (self.sample_width, self.sample_height),
                     interpolation=cv2.INTER_LINEAR,
                 )
-                if frames is None:
-                    frames = in_frame[None, ...]
-                else:
-                    frames = np.concatenate((frames, in_frame[None, ...]), axis=0)
+                frames.append(in_frame)
+
+            logger.info("Done.")
 
             frames = self._pre_process_frame(frames)
 
@@ -117,12 +115,13 @@ class VideoSet(torch.utils.data.Dataset):
         """
         Pre process an array
         Args:
-            arr (ndarray): an array of frames or a ndarray of an image
+            arr (list): an list of frames or a ndarray of an image
                 of shape T x H x W x C or W x H x C respectively
         Returns:
-            arr (tensor): a normalized torch tensor of shape C x T x H x W 
+            arr (tensor): a normalized torch tensor of shape C x T x H x W
                 or C x W x H respectively
         """
+        arr = np.stack(arr)
         arr = torch.from_numpy(arr).float()
 
         # Normalize the values

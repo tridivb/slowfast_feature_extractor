@@ -2,10 +2,8 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 from slowfast.models import ResNet, SlowFast
-from slowfast.models import MODEL_REGISTRY
 
 
-@MODEL_REGISTRY.register()
 class SlowFastFeat(SlowFast):
     # Overwrite forward function to return features
     def forward(self, x, bboxes=None):
@@ -29,7 +27,6 @@ class SlowFastFeat(SlowFast):
             return x, feat
 
 
-@MODEL_REGISTRY.register()
 class ResNetFeat(ResNet):
     # Overwrite forward function to return features
     def forward(self, x, bboxes=None):

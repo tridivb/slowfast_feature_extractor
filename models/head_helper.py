@@ -6,7 +6,7 @@ import torch
 from slowfast.models.head_helper import ResNetBasicHead
 
 
-class ResNetBasicHead(ResNetBasicHead):
+class ResNetBasicHeadFeat(ResNetBasicHead):
     # Overwrite function to return features
     def forward(self, inputs):
         assert (

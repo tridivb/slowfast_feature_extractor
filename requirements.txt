@@ -1,0 +1,13 @@
+torch
+torchvision
+cython
+simplejson
+av
+fvcore
+iopath
+psutil
+opencv-python
+tensorboard
+moviepy
+parse
+black

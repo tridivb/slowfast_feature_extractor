@@ -34,7 +34,7 @@ def get_cfg():
     """
     Get a copy of the default config.
     """
-    return defcfg._assert_and_infer_cfg(defcfg._C.clone())
+    return defcfg.assert_and_infer_cfg(defcfg._C.clone())
 
 
 def load_config(args):

@@ -1,10 +1,10 @@
 TRAIN:
   ENABLE: False
   DATASET: videoset
-  CHECKPOINT_FILE_PATH: "path/to/checkpoint"
+  CHECKPOINT_FILE_PATH: "/media/tridiv/25C9F4426BA5E6C4/slowfast_feature_extractor/weights/SLOWFAST_8x8_R50.pkl"
   CHECKPOINT_TYPE: caffe2
 DATA:
-  PATH_TO_DATA_DIR: "/path/to/dataset"
+  PATH_TO_DATA_DIR: "/media/tridiv/25C9F4426BA5E6C4/fault_detection/datasets/teraki-crack-dataset/videos/23_10_2020"
   PATH_PREFIX: ""
   NUM_FRAMES: 32
   SAMPLING_RATE: 2
@@ -53,7 +53,7 @@ SOLVER:
 MODEL:
   NUM_CLASSES: 400
   ARCH: slowfast
-  MODEL_NAME: SlowFast
+  MODEL_NAME: SlowFastFeat
   LOSS_FUNC: cross_entropy
   DROPOUT_RATE: 0.5
 TEST:
@@ -65,7 +65,7 @@ DATA_LOADER:
   PIN_MEMORY: True
 DETECTION:
   ENABLE: False
-NUM_GPUS: 1
+NUM_GPUS: 0
 NUM_SHARDS: 1
 RNG_SEED: 0
-OUTPUT_DIR: "path/to/output/features"
+OUTPUT_DIR: "/media/tridiv/25C9F4426BA5E6C4/fault_detection/datasets/teraki-crack-dataset/videos/23_10_2020_feats"
